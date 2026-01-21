@@ -6,12 +6,17 @@ Docstring for CBC:
 This module implements Cipher Block Chaining (CBC) encryption
 """
 
+# some functions completed with Github Copilot assistance
+# AES usage based on PyCryptodome documentation: 
+# https://pycryptodome.readthedocs.io/en/latest/src/examples.html
+
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 
 AES_BLOCK_SIZE = 16  # bytes (128 bits) for AES
 
 def readfile() -> bytes:
+    # GitHub Copilot assisted implementation
     with open("mustang.bmp", "rb") as file:
         plaintext = file.read()
     return plaintext
@@ -20,19 +25,22 @@ def split_hbmp_header(plaintext: bytes, header_size: int = 54) -> tuple[bytes, b
     if len(plaintext) < header_size:
         raise ValueError("Plaintext is smaller than the specified header size.")
     
+    # GitHub Copilot assisted implementation
     header = plaintext[:header_size]
     body = plaintext[header_size:]
     return header, body
 
-def pkcs7_padding(data: bytes, block_size: int = 16) -> bytes:
+def pkcs7_padding(data: bytes, block_size: int = AES_BLOCK_SIZE) -> bytes:
     if block_size <= 0 or block_size > 255:
         raise ValueError("block_size must be between 1 and 255 for PKCS#7.")
     
+    # GitHub Copilot assisted implementation
     padding_length = block_size - (len(data) % block_size)
     padding = bytes([padding_length]) * padding_length
     return data + padding
 
 def xor_bytes(a: bytes, b: bytes) -> bytes:
+    # ChatGPT assisted implementation
     if len(a) != len(b):
         raise ValueError("Byte sequences must be of equal length to XOR.")
     
@@ -57,6 +65,8 @@ def cbc_encrypt(data: bytes, key: bytes, iv: bytes) -> bytes:
     ciphertext_blocks = []
     prev = iv
 
+    # GitHub Copilot assisted loop implementation
+    # variables renamed and loop logic verified
     for i in range(0, len(data), AES_BLOCK_SIZE):
         block = data[i:i + AES_BLOCK_SIZE]
         xored = xor_bytes(block, prev)
