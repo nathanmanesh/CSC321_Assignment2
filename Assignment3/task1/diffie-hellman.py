@@ -111,10 +111,3 @@ if __name__ == "__main__":
     a_int  = int (a.replace(" ", ""), 16)
 
     demo(q_int, a_int)
-
-
-
-
-
-
-
