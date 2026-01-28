@@ -35,7 +35,7 @@ def aes_cbc_decrypt(key: bytes, iv: bytes, ciphertext: bytes) -> bytes:
     return unpad(cipher.decrypt(ciphertext), AES.block_size)
 
 # diffie-hellman key generate
-# used ChatGPT to help with some code generation
+
 
 def diffie_hellman_generate(q: int, a: int):
 
@@ -57,26 +57,30 @@ def diffie_hellman_compute_shared_secret(mysecret_x: int, other_public_y: int, q
     #  s = (other_public_y) ^ (mysecret_x) mode q
     return pow(other_public_y, mysecret_x, q)
 
+# used chatGPT to help with some code generation
 
+def mallory_candidates_for_generator(a_used: int, q: int):
+    #  if mallory forces a to 1, q, or q - 1, the DH shared secret is predictable
+    if a_used % q == 1:
+        return[1]
+    if a_used % q == 0: # a = q is 0 mod q
+        return[0]
+    if a_used % q == (q - 1): # a = q - 1 is -1 mod q
+        return [1, q - 1]
+    return []
 
-def demo(q: int, a: int):
-
+def demo_generator_tamper(q: int, a_real: int, a_tampered: int):
     # fixed iv
     iv = b"\x00" * 16 
 
-    (xA, yA), (xB, yB) = diffie_hellman_generate(q, a)
+    # mallory tampers with the generator a in transit
+    a_used = a_tampered
 
-    # mallory tampers with exchange.
-    # mallory sends q to Bob instead of yA, and q to Alice instead of yB
+    # alice and bob run DH with tampered a
+    (xA, yA), (xB, yB) = diffie_hellman_generate(q, a_used)
 
-    yA_to_bob = q
-    yB_to_alice = q
-
-    # alice and bob compute shared secret using tampered values
-    sA = diffie_hellman_compute_shared_secret(xA, yB_to_alice, q)
-    sB = diffie_hellman_compute_shared_secret(xB, yA_to_bob, q)
-
-    # derive AES keys from shared secret
+    sA = diffie_hellman_compute_shared_secret(xA, yB, q)
+    sB = diffie_hellman_compute_shared_secret(xB, yA, q)
 
     kA = aes_key_from_shared_secret(sA)
     kB = aes_key_from_shared_secret(sB)
@@ -88,26 +92,32 @@ def demo(q: int, a: int):
     
     message_bob = b"Hi Alice, my name is Bob!"
     ciphertext_bob = aes_cbc_encrypt(kB, iv, message_bob)
+
+    #mallory tries the small set of possible shared secrets
+    candidates = mallory_candidates_for_generator(a_used, q)
+
+    leaked0 = leaked1 = None
+    used_s = None
+
+    for s_guess in candidates:
+        try:
+            kM = aes_key_from_shared_secret(s_guess)
+            leaked0 = aes_cbc_decrypt(kM, iv, ciphertext_alice)
+            leaked1 = aes_cbc_decrypt(kM, iv, ciphertext_bob)
+            used_s = s_guess
+            break
+        except ValueError:
+            continue
+
+    if used_s is None:
+        print("mallory failed to decrypt")
+    else:
+        print("mallory used s = ", used_s)
+        print("mallory decrypts message from alice to bob: ", leaked0)
+        print("mallory decrypts message from bob to alice: ", leaked1)
+
+
     
-
-    # mallory can determine shared secret:
-    # if other_public_y = q, then other_public_y mod q = 0, so s = 0 ^ x mod q = 0
-
-    shared_m = 0
-    kM = aes_key_from_shared_secret(shared_m)
-
-    leaked_message_alice = aes_cbc_decrypt(kM, iv, ciphertext_alice)
-    leaked_message_bob = aes_cbc_decrypt(kM, iv, ciphertext_bob)
-
-
-
-
-    print("Mallory decrypts message from alice:", leaked_message_alice)
-    print("Mallory decrypts message from bob:", leaked_message_bob)
-
-
-
-
 
 if __name__ == "__main__":
     q = "B10B8F96 A080E01D DE92DE5E AE5D54EC 52C99FBC FB06A3C6 " \
@@ -129,7 +139,10 @@ if __name__ == "__main__":
     q_int = int (q.replace(" ", ""), 16)
     a_int  = int (a.replace(" ", ""), 16)
 
-    demo(q_int, a_int)
+    # run the attack three times: a = 1, a = q, a = q-1
+    demo_generator_tamper(q_int, a_int, a_tampered=1)
+    demo_generator_tamper(q_int, a_int, a_tampered=q_int)
+    demo_generator_tamper(q_int, a_int, a_tampered=q_int-1)
 
 
 
